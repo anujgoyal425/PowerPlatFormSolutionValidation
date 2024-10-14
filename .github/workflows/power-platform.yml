@@ -16,6 +16,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      - name: Set Environment Name
+        id: env-name
+        run: |
+          # Generate a unique environment name based on branch and GitHub run ID
+          export ENV_NAME="env-${{ github.ref_name }}-${{ github.run_id }}"
+          echo "ENV_NAME=${ENV_NAME}" >> $GITHUB_ENV
+
       - name: Authenticate with Power Platform
         run: |
           pac auth create --tenant ${{ secrets.AZURE_TENANT_ID }} --client-id ${{ secrets.AZURE_CLIENT_ID }} --client-secret ${{ secrets.AZURE_CLIENT_SECRET }} --cloud Commercial
@@ -24,15 +31,19 @@ jobs:
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
 
-      - name: Create Power Platform Environment (if needed)
+      - name: Create Power Platform Environment
         run: |
-          pac environment create --name ${{ secrets.POWER_PLATFORM_ENV }} --type Production --region "unitedstates"
+          pac environment create --name ${{ env.ENV_NAME }} --type Production --region "unitedstates"
+        env:
+          ENV_NAME: ${{ env.ENV_NAME }}
 
       - name: Import Solution to Power Platform
         run: |
-          pac solution import --path ./solution.zip --environment ${{ secrets.POWER_PLATFORM_ENV }}
+          pac solution import --path ./solution.zip --environment ${{ env.ENV_NAME }}
 
       - name: Cleanup Power Platform Environment on Failure
         if: failure()
         run: |
-          pac environment delete --name ${{ secrets.POWER_PLATFORM_ENV }}
+          pac environment delete --name ${{ env.ENV_NAME }}
+        env:
+          ENV_NAME: ${{ env.ENV_NAME }}
